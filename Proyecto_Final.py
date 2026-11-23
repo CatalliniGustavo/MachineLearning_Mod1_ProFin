@@ -24,10 +24,27 @@ emisiones_df = emisiones_df.filter(
     regex=r'^(ESTACION|MAGNITUD|ANO|MES)$|^D\d+' # Toma las cuatro especificadas más las que comienzan con 'D' seguida de un número.
     )
 
+# Aplicar .melt() para pasar las columnas de los días a filas.
 emisiones_df = pd.melt(
     emisiones_df,
     id_vars = emisiones_df.filter(regex = r'^(ESTACION|MAGNITUD|ANO|MES)$'), # Las columnas que no se tocan.
     value_vars = emisiones_df.filter(regex = r'^D\d+'), # Las columnas que pasan a fila.
-    var_name = 'DIA', # Nombre de la columna nueva
+    var_name = 'DIA', # Nombre de la columna nueva.
     value_name = 'VALOR' # Nombre de la columna con los valores.
 )
+# Limpiar valores de la columna DIA sacando la 'D'
+emisiones_df['DIA'] = emisiones_df['DIA'].str.lstrip('D').astype(int)
+
+# Crear una columna con la fecha combinada con año, mes, día.
+emisiones_df['FECHA'] = pd.to_datetime(
+    dict(
+        year = emisiones_df['ANO'],
+        month = emisiones_df['MES'],
+        day = emisiones_df['DIA']
+    ),
+    errors = 'coerce' # Coloca Nat en las filas de las fechas que no existen.
+) 
+
+# print(type(emisiones_df['FECHA'].iloc[5]))
+# print(emisiones_df['FECHA'].isna().sum())
+# emisiones_df.to_csv('emisiones_16_19.csv')
