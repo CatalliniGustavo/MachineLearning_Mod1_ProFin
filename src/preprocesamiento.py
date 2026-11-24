@@ -2,6 +2,13 @@ import pandas as pd
 import numpy
 import matplotlib.pyplot as plt
 
+# Recibir una lista de rutas de archivos CSV.
+# Recorrer la lista mediante un bucle for.
+# Almacenar los DataFrames en una lista.
+# Concatenarlos una sola vez, fuera del bucle.
+# Devolver el DataFrame resultante.
+# No depender de variables globales.
+
 # Carga de todos los datos
 emi_2016 = pd.read_csv('emisiones-2016.csv', delimiter= ';')
 emi_2017 = pd.read_csv('emisiones-2017.csv', delimiter= ';')
