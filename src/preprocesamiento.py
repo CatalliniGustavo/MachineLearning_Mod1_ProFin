@@ -1,57 +1,56 @@
 import pandas as pd
-import numpy
-import matplotlib.pyplot as plt
 
-# Recibir una lista de rutas de archivos CSV.
-# Recorrer la lista mediante un bucle for.
-# Almacenar los DataFrames en una lista.
-# Concatenarlos una sola vez, fuera del bucle.
-# Devolver el DataFrame resultante.
-# No depender de variables globales.
+# DataFrame original unificado
+def cargar_datos(archivos: list) -> pd.DataFrame:
+    return pd.concat((pd.read_csv(f) for f in archivos), ignore_index=True)
 
-# Carga de todos los datos
-emi_2016 = pd.read_csv('emisiones-2016.csv', delimiter= ';')
-emi_2017 = pd.read_csv('emisiones-2017.csv', delimiter= ';')
-emi_2018 = pd.read_csv('emisiones-2018.csv', delimiter= ';')
-emi_2019 = pd.read_csv('emisiones-2019.csv', delimiter= ';')
+# DataFrame filtrado
+def filtrar_columnas(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.filter(
+    regex = r'^(ESTACION|MAGNITUD|ANO|MES)$|^D\d+') # Toma las cuatro especificadas más las que comienzan con 'D' seguida de un número.
+    return df
 
-# Cantidad total de la suma de todas las filas de los cuatro DataFrame
-# print(emi_2016.shape[0] + emi_2017.shape[0] + emi_2018.shape[0] + emi_2019.shape[0])
+# DataFrame en formato largo
+def reestructurar_datos(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.melt(
+        id_vars = df.filter(regex = r'^(ESTACION|MAGNITUD|ANO|MES)$').columns, # Las columnas que no se tocan.
+        value_vars = df.filter(regex = r'^D\d+').columns, # Las columnas que pasan a fila.
+        var_name = 'DIA', # Nombre de la columna nueva.
+        value_name = 'VALOR', # Nombre de la columna con los valores.
+        )
+    return df
 
-# Unión de los cuatro DataFrames mediante concatenación vertical
-emisiones_df = pd.concat(
-    [emi_2016, emi_2017, emi_2018, emi_2019],
-    axis = 0, # Apila las filas una debajo de otra
-    ignore_index = True, # Descarta los índices numéricos y crea un índice continuo nuevo.
-    sort = False # Mantiene el orden original de tus columnas sin reordenarlas alfabéticamente.
-    )
+# DataFrame con fechas
+def columna_fecha(df: pd.DataFrame) -> pd.DataFrame:
+    df['DIA'] = df['DIA'].str.lstrip('D').astype(int) # Limpiar valores de la columna DIA sacando la 'D'
+    df['FECHA'] = pd.to_datetime(
+        dict(
+            year = df['ANO'],
+            month = df['MES'],
+            day = df['DIA']),
+        errors = 'coerce' # Coloca Nat en las filas de las fechas que no existen.
+        )
+    return df
 
-# Filtrar columnas. Quedan 35 columnas
-emisiones_df = emisiones_df.filter(
-    regex=r'^(ESTACION|MAGNITUD|ANO|MES)$|^D\d+' # Toma las cuatro especificadas más las que comienzan con 'D' seguida de un número.
-    )
+# DataFrame depurado y ordenado
+def limpiar_datos(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.dropna(subset=["FECHA"]).reset_index(drop=True) # Elimina las filas Nat de la columna 'FECHA'.
+    return df.sort_values(by=["ESTACION", "FECHA"]).reset_index(drop=True) # Ordena los datos por estaciones y fecha.
+    
+# DataFrame final	Coordinación
+def preprocesar_datos(archivos: list[str]) -> pd.DataFrame:
+    df = cargar_datos(archivos)
+    df = filtrar_columnas(df)
+    df = reestructurar_datos(df)
+    df = columna_fecha(df)
+    df = limpiar_datos(df)
+    return df
+    
+from pathlib import Path
 
-# Aplicar .melt() para pasar las columnas de los días a filas.
-emisiones_df = pd.melt(
-    emisiones_df,
-    id_vars = emisiones_df.filter(regex = r'^(ESTACION|MAGNITUD|ANO|MES)$'), # Las columnas que no se tocan.
-    value_vars = emisiones_df.filter(regex = r'^D\d+'), # Las columnas que pasan a fila.
-    var_name = 'DIA', # Nombre de la columna nueva.
-    value_name = 'VALOR' # Nombre de la columna con los valores.
-)
-# Limpiar valores de la columna DIA sacando la 'D'
-emisiones_df['DIA'] = emisiones_df['DIA'].str.lstrip('D').astype(int)
-
-# Crear una columna con la fecha combinada con año, mes, día.
-emisiones_df['FECHA'] = pd.to_datetime(
-    dict(
-        year = emisiones_df['ANO'],
-        month = emisiones_df['MES'],
-        day = emisiones_df['DIA']
-    ),
-    errors = 'coerce' # Coloca Nat en las filas de las fechas que no existen.
-) 
-
-# print(type(emisiones_df['FECHA'].iloc[5]))
-# print(emisiones_df['FECHA'].isna().sum())
-# emisiones_df.to_csv('emisiones_16_19.csv')
+# ruta_data = Path(__file__).resolve().parents[1] / "data"
+# archivos_csv = sorted(ruta_data.glob("*.csv"))
+# print(archivos_csv)
+# data\emisiones-2016.csv
+archivos = [f.as_posix() for f in sorted(Path("data").glob("*.csv"))]
+print(preprocesar_datos(archivos))
